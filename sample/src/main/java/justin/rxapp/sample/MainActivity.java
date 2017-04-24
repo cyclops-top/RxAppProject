@@ -98,8 +98,7 @@ public class MainActivity extends AppCompatActivity {
                         sendBroadcast(intent);
                         send.setText("发送："+time);
                     });
-
-
+            startBroadcast.setEnabled(false);
         });
         registerBroadcast.setOnClickListener(v -> {
             broadcastDisposable = RxApp.with(this).broadcast("RxApp.Test")
