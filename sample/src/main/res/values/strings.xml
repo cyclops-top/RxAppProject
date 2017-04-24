@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">RxApp</string>
+    <string name="title_activity_result">ResultActivity</string>
+</resources>

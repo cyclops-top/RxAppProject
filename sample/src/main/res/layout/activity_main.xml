@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="justin.rxapp.sample.MainActivity">
+
+    <LinearLayout
+
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        >
+
+        <TextView
+            android:id="@+id/showResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="60dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/send"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="发送："/>
+
+            <TextView
+                android:id="@+id/received"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="接收："/>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/openSettings"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="打开设置界面"/>
+
+        <Button
+            android:id="@+id/getCameraPermission"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="获取CAMERA权限"/>
+
+        <Button
+            android:id="@+id/getCameraAndReadSmsPermission"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="获取CAMERA和读取SMS权限"/>
+
+        <Button
+            android:id="@+id/startActivityForResult"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Activity Result"/>
+
+        <Button
+            android:id="@+id/startBroadcast"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="启动广播"/>
+
+        <Button
+            android:id="@+id/registerBroadcast"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="注册广播"/>
+
+        <Button
+            android:id="@+id/unregisterBroadcast"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="取消注册"/>
+    </LinearLayout>
+
+
+</ScrollView>
