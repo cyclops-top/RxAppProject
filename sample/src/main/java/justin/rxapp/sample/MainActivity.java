@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.util.Locale;
+import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -29,7 +30,6 @@ public class MainActivity extends AppCompatActivity {
     private Button startBroadcast;
     private Button registerBroadcast;
     private Button unregisterBroadcast;
-    private Disposable broadcastDisposable;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -87,27 +87,36 @@ public class MainActivity extends AppCompatActivity {
         registerBroadcast = (Button) findViewById(R.id.registerBroadcast);
         unregisterBroadcast = (Button) findViewById(R.id.unregisterBroadcast);
 
-
+        final Stack<Disposable> disposables = new Stack<>();
         startBroadcast.setOnClickListener(v ->{
-            Observable.interval(1, TimeUnit.SECONDS)
-                    .compose(RxApp.with(this).bindLife())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(time->{
-                        Intent intent = new Intent("RxApp.Test");
-                        intent.putExtra("Time",(long)time);
-                        sendBroadcast(intent);
-                        send.setText("发送："+time);
-                    });
-            startBroadcast.setEnabled(false);
+
+
+                        Observable.interval(5, TimeUnit.SECONDS)
+                                .compose(RxApp.with(MainActivity.this).bindLife())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                .subscribe(time->{
+                                    Intent intent = new Intent("RxApp.Test");
+                                    intent.putExtra("Time",(long)time);
+                                    sendStickyBroadcast(intent);
+                                    send.setText("发送："+time);
+                                });
+                        startBroadcast.setEnabled(false);
+
+
         });
         registerBroadcast.setOnClickListener(v -> {
-            broadcastDisposable = RxApp.with(this).broadcast("RxApp.Test")
+            final int index = disposables.size();
+            Disposable disposable = RxApp.with(this).broadcast("RxApp.Test")
                     .subscribe(intent ->
-                            received.setText("收到："+ intent.getLongExtra("Time",0)));
+                            received.setText(String.format(Locale.CHINA,"收到(%d)：%d",
+                                    index,
+                                    intent.getLongExtra("Time", 0))));
+            disposables.push(disposable);
         });
         unregisterBroadcast.setOnClickListener(v -> {
-            if(broadcastDisposable!= null){
-                broadcastDisposable.dispose();
+            Disposable disposable = disposables.pop();
+            if (disposable != null && !disposable.isDisposed()) {
+                disposable.dispose();
             }
         });
 
