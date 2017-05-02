@@ -21,11 +21,12 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
 import io.reactivex.ObservableTransformer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
 import io.reactivex.subjects.BehaviorSubject;
@@ -41,6 +42,7 @@ public class RxAppHelper implements IRxAppSupport {
     private SparseArray<BehaviorSubject<Permission[]>> mPermissionObservable = new SparseArray<>();
     private SparseArray<BehaviorSubject<ActivityResult>> mActivityResultObservable = new SparseArray<>();
     private HashMap<String, ObservableBroadcastReceiver> mBroadcastReceivers = new HashMap<>();
+    private HashMap<String, Observable<Intent>> mBroadcastObservables = new HashMap<>();
 
     private final Fragment mFragment;
     private final android.support.v4.app.Fragment mFragmentV4;
@@ -125,12 +127,7 @@ public class RxAppHelper implements IRxAppSupport {
                 == PermissionChecker.PERMISSION_GRANTED;
     }
 
-    /**
-     * 获取目前的进程已确定的权限
-     *
-     * @param permissions 权限
-     * @return 权限状态数组
-     */
+
     Permission[] getCurrPermission(String... permissions) {
         Permission[] permissionResult = new Permission[permissions.length];
         int index = 0;
@@ -142,12 +139,7 @@ public class RxAppHelper implements IRxAppSupport {
         return permissionResult;
     }
 
-    /**
-     * 判定和请求权限，并返回是否全部权限都认可的Observable
-     * <p>在Android M 以下版本会直接返回True，如需兼容M以下请自行try catch</p>
-     * @param permissions 权限
-     * @return 结果Observable
-     */
+
     @Override
     public Observable<Boolean> ensure(String... permissions) {
         return requestPermission(permissions)
@@ -172,17 +164,7 @@ public class RxAppHelper implements IRxAppSupport {
                 });
     }
 
-    /**
-     * 判定和请求权限，并返回其结果的Observable
-     * <p>注意以下几点：</p>
-     * <p>  1.在Android M 以下的版本会直接返回所有权限已获取</p>
-     * <p>  2.请求顺序和返回顺序是不同的</p>
-     * <p>  3.因为针对某些机型的适配问题，已有的权限不再获取，直接返回。
-     * 如在小米5上对已有权限再次进行请求，如果用户拒绝就会崩溃</p>
-     *
-     * @param permissions 需请求的权限
-     * @return 请求权限的状态Observable
-     */
+
     @Override
     public Observable<Permission[]> requestPermission(final String... permissions) {
         return Observable.just(permissions)
@@ -212,7 +194,7 @@ public class RxAppHelper implements IRxAppSupport {
                                 mPermissionObservable.put(requestCode, (BehaviorSubject<Permission[]>) observable);
                                 String[] requestPermissions = new String[notAllowList.size()];
                                 int index = 0;
-                                for(String permission: notAllowList){
+                                for (String permission : notAllowList) {
                                     requestPermissions[index] = permission;
                                     index++;
                                 }
@@ -272,13 +254,6 @@ public class RxAppHelper implements IRxAppSupport {
         }
     }
 
-    /**
-     * startActivityForResult 并返回activity结果的Observable
-     *
-     * @param intent 需要启动的activity信息
-     * @param opt    参数，一般为动画参数
-     * @return activity结果的Observable
-     */
     @Override
     public Observable<ActivityResult> startActivityForObservable(Intent intent, Bundle opt) {
         int requestCode = sAtomicInteger.getAndIncrement();
@@ -300,96 +275,88 @@ public class RxAppHelper implements IRxAppSupport {
 
     @Override
     public Observable<Intent> broadcast(String... filters) {
-        return broadcast(false, filters);
+        return broadcast(true, filters);
     }
 
-    /**
-     * 广播接收
-     *
-     * @param hasLastData 是否传最后一次广播参数
-     * @param filters     actions
-     * @return data's Observable
-     */
-    @Override
-    public Observable<Intent> broadcast(final boolean hasLastData, final String... filters) {
-        final ObservableEmitter[] mObservableEmitter = new ObservableEmitter[1];
-        return Observable.create(new ObservableOnSubscribe<Intent>() {
-                                     @Override
-                                     public void subscribe(@NonNull ObservableEmitter<Intent> e) throws Exception {
-                                         mObservableEmitter[0] = e;
-                                         for (String filter : filters) {
-                                             ObservableBroadcastReceiver broadcast = mBroadcastReceivers.get(filter);
-                                             if (broadcast == null) {
-                                                 broadcast = new ObservableBroadcastReceiver();
-                                                 IntentFilter intentFilter = new IntentFilter();
-                                                 intentFilter.addAction(filter);
-                                                 Intent last = RxAppHelper.this.getActivity().registerReceiver(broadcast, intentFilter);
-                                                 broadcast.setLastData(last);
-                                                 mBroadcastReceivers.put(filter, broadcast);
-                                             }
-                                             broadcast.add(hasLastData, e);
-                                         }
-                                     }
-                                 }
-        ).doOnDispose(new Action() {
+    private Observable<Intent> getBroadcastObservable(final boolean hasLastData, final String filter) {
+        Observable<Intent> out = mBroadcastObservables.get(filter);
+        if (out != null) {
+            return out;
+        }
+        BehaviorSubject<Intent> subject = BehaviorSubject.create();
+        final ObservableBroadcastReceiver receiver = new ObservableBroadcastReceiver(subject);
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(filter);
+        Intent last = RxAppHelper.this.getActivity().registerReceiver(receiver, intentFilter);
+        mBroadcastReceivers.put(filter, receiver);
+        if (last != null && hasLastData) {
+            subject.onNext(last);
+        }
+        final int[] size = new int[]{0};
+        Observable<Intent> observable = subject.doOnLifecycle(new Consumer<Disposable>() {
+            @Override
+            public void accept(@io.reactivex.annotations.NonNull Disposable disposable) throws Exception {
+                size[0]++;
+            }
+        }, new Action() {
             @Override
             public void run() throws Exception {
-                ObservableEmitter e = mObservableEmitter[0];
-                if (e == null) {
-                    return;
-                }
-                for (String filter : filters) {
-                    ObservableBroadcastReceiver broadcast = mBroadcastReceivers.get(filter);
-                    if (broadcast != null) {
-                        //noinspection unchecked
-                        broadcast.remove((ObservableEmitter<Intent>) e);
-                        if (broadcast.size() == 0) {
-                            RxAppHelper.this.getActivity().unregisterReceiver(broadcast);
-                            mBroadcastReceivers.remove(filter);
-                        }
-                    }
+                size[0]--;
+                if (size[0] <= 0) {
+                    RxAppHelper.this.getActivity().unregisterReceiver(receiver);
+                    mBroadcastObservables.remove(filter);
+                    mBroadcastReceivers.remove(filter);
                 }
             }
-        });
+        }).subscribeOn(AndroidSchedulers.mainThread());
+        mBroadcastObservables.put(filter, observable);
+        return observable;
+    }
+
+
+
+    @Override
+    public Observable<Intent> broadcast(final boolean useStickData, @NonNull final String... filters) {
+        if (filters.length == 0) {
+            throw new IllegalArgumentException("filters can't empty");
+        }
+        Observable<Intent> observable = null;
+        for (String filter : filters) {
+            Observable<Intent> next = getBroadcastObservable(useStickData, filter);
+            if (observable == null) {
+                observable = next;
+            } else {
+                observable = observable.mergeWith(next);
+            }
+        }
+        return observable;
+
     }
 
     public void unregisterAllReceiver() {
         for (Map.Entry<String, ObservableBroadcastReceiver> entry : mBroadcastReceivers.entrySet()) {
             ObservableBroadcastReceiver val = entry.getValue();
             getActivity().unregisterReceiver(val);
+            val.onComplete();
         }
     }
 
-    private class ObservableBroadcastReceiver extends BroadcastReceiver {
-        private List<ObservableEmitter<Intent>> emitters = new ArrayList<>();
-        private Intent lastData;
+    class ObservableBroadcastReceiver extends BroadcastReceiver {
+        private final BehaviorSubject<Intent> mSubject;
 
-        public void add(boolean hasLastData, ObservableEmitter<Intent> emitter) {
-            emitters.add(emitter);
-            if (hasLastData && lastData != null) {
-                emitter.onNext(lastData);
-            }
-        }
-
-        void setLastData(Intent data) {
-            lastData = data;
-        }
-
-        public void remove(ObservableEmitter<Intent> emitter) {
-            emitters.remove(emitter);
-        }
-
-        public int size() {
-            return emitters.size();
+        public ObservableBroadcastReceiver(BehaviorSubject<Intent> subject) {
+            mSubject = subject;
         }
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            lastData = intent;
-            for (ObservableEmitter<Intent> emitter : emitters) {
-                emitter.onNext(intent);
-            }
+            mSubject.onNext(intent);
         }
+
+        public void onComplete() {
+            mSubject.onComplete();
+        }
+
     }
 
 }
