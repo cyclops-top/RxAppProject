@@ -1,1 +1,1 @@
-include ':sample', ':rxapp'
+include ':sample', ':rxapp', ':rxapp-kotlin', ':kt-sample'

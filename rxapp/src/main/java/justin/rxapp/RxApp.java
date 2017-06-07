@@ -2,6 +2,8 @@ package justin.rxapp;
 
 import android.app.Activity;
 import android.app.Fragment;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 
 /**
@@ -17,6 +19,7 @@ public class RxApp {
         return RxHelperFragment.getRxAppSupport(activity);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     public static IRxAppSupport with(Fragment fragment){
         return RxHelperFragment.getRxAppSupport(fragment);
     }
