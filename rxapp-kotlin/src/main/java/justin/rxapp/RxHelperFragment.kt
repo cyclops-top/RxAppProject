@@ -15,7 +15,6 @@ import android.view.ViewGroup
  */
 class RxHelperFragment : Fragment() {
     val mRxAppHelper = RxAppHelper(this)
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val view = super.onCreateView(inflater, container, savedInstanceState)
         mRxAppHelper.init()

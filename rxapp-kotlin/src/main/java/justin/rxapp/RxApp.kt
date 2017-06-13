@@ -53,30 +53,17 @@ private fun android.support.v4.app.Fragment.getRxAppSupport(): IRxAppSupport {
     return fragmentManager.getRxAppSupport()
 }
 
-private val Activity.rxApp by required {
-    getRxAppSupport()
-}
-
-private val Fragment.rxApp by required {
-    getRxAppSupport()
-}
-
-private val android.support.v4.app.Fragment.rxApp by required {
-    getRxAppSupport()
-}
-
 fun Activity.rxApp(): IRxAppSupport {
-    return rxApp
+    return getRxAppSupport()
 }
 
 fun Fragment.rxApp(): IRxAppSupport {
-    return rxApp
+    return getRxAppSupport()
 }
 
 fun android.support.v4.app.Fragment.rxApp(): IRxAppSupport {
-    return rxApp
+    return getRxAppSupport()
 }
-
 private class Lazy<T, V>(private val initializer: (T, KProperty<*>) -> V) : ReadOnlyProperty<T, V> {
     private object EMPTY
 
